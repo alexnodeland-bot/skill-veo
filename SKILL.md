@@ -52,10 +52,11 @@ Use `--list-models` to see all available models from the API.
 | `--prompt` | required | Text description |
 | `--filename` | required | Output path (`.mp4`) |
 | `--model` | `fast` | Model alias or full name |
-| `--duration` | `8` | Seconds (5–8) |
+| `--duration` | `8` | Seconds — **must be 4, 6, or 8** (odd values auto-rounded) |
 | `--aspect-ratio` | `16:9` | `16:9` or `9:16` |
+| `--resolution` | API default | `720p` or `1080p` |
 | `--negative-prompt` | — | What to avoid |
-| `--seed` | — | Reproducibility seed |
+| `--person-generation` | — | `allow_adult`, `allow_all`, `dont_allow` |
 | `--count` | `1` | Number of videos |
 
 ## Input Sources
@@ -77,11 +78,12 @@ Use `--list-models` to see all available models from the API.
 
 ## Gemini API Limitations
 
-These flags are **Vertex AI only** — not supported on the Gemini API:
-- `--last-frame` (workaround: generate two clips and stitch with ffmpeg)
-- `--resolution` (API uses its own default)
+These are **Vertex AI only** — not available via Gemini API key:
+- `--last-frame` → workaround: generate two clips and stitch with `ffmpeg`
+- `--seed`
 - `--fps`
 - `--generate-audio`
+- `enhance_prompt` → only applies to veo-2.0 models (automatically handled)
 
 ## Filename Convention
 
