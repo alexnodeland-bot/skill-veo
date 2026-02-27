@@ -1,6 +1,6 @@
 ---
 name: veo
-description: "Generate videos with Google Veo 3 (or Veo 2) via Gemini API. Supports text-to-video, image-to-video, last-frame, element references (ASSET), and style references. Use for any video generation request. Requires GEMINI_API_KEY."
+description: "Generate videos with Google Veo via Gemini API. Default model: veo-3.1-fast-generate-preview. Supports aliases: fast, quality, 3.1, 3.0, 2.0. Text-to-video, image-to-video, element/style references. Requires GEMINI_API_KEY."
 metadata:
   {
     "openclaw":
@@ -22,129 +22,89 @@ metadata:
 
 # Veo Video Generation
 
-Generate videos using Google's Veo 3 model via the Gemini API.
+Generate videos using Google Veo via the Gemini API.
 
 ## Usage
 
 ```bash
-~/.local/bin/uv run ~/.openclaw/workspace/skills/veo/scripts/generate_video.py \
+~/.local/bin/uv run /path/to/skills/veo/scripts/generate_video.py \
   --prompt "your video description" \
-  --filename "yyyy-mm-dd-hh-mm-ss-name.mp4" \
-  [options]
+  --filename "output.mp4" \
+  --api-key YOUR_GEMINI_API_KEY
 ```
 
-**Important:** Always run from the user's working directory so videos are saved where expected.
+## Models
+
+| Alias | Full name | Notes |
+|-------|-----------|-------|
+| `fast` *(default)* | `veo-3.1-fast-generate-preview` | Fastest, great quality |
+| `quality` | `veo-3.1-generate-preview` | Highest quality, slower |
+| `3.0` | `veo-3.0-generate-001` | Veo 3.0 quality |
+| `3.0fast` | `veo-3.0-fast-generate-001` | Veo 3.0 fast |
+| `2.0` | `veo-2.0-generate-001` | Most compatible |
+
+Use `--list-models` to see all available models from the API.
 
 ## Core Options
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--prompt` | required | Text description of the video |
-| `--filename` | required | Output path (timestamped, e.g. `2026-02-27-14-00-00-sunset.mp4`) |
-| `--model` | `veo-3-generate-001` | Model to use (`veo-2-generate-001` or `veo-3-generate-001`) |
-| `--duration` | `8` | Duration in seconds (5–8) |
-| `--aspect-ratio` | `16:9` | `16:9` (landscape) or `9:16` (portrait/vertical) |
-| `--resolution` | `720p` | `720p` or `1080p` |
+| `--prompt` | required | Text description |
+| `--filename` | required | Output path (`.mp4`) |
+| `--model` | `fast` | Model alias or full name |
+| `--duration` | `8` | Seconds (5–8) |
+| `--aspect-ratio` | `16:9` | `16:9` or `9:16` |
 | `--negative-prompt` | — | What to avoid |
 | `--seed` | — | Reproducibility seed |
-| `--no-audio` | off | Disable audio (Veo 3 generates audio by default) |
-| `--count` | `1` | Number of videos to generate |
+| `--count` | `1` | Number of videos |
 
 ## Input Sources
 
-### Image-to-Video (starting frame)
+### Image-to-video
 ```bash
 --input-image path/to/image.png
 ```
-Animate from a starting image.
 
-### Last Frame
+### Element references (assets)
 ```bash
---last-frame path/to/end-frame.png
-```
-Guide the video toward a specific ending frame.
-**Note:** `--last-frame` is only supported on Vertex AI, not the Gemini API. If using the Gemini API (default), omit this flag. Workaround: generate two clips and stitch with ffmpeg.
-
-## Reference Images
-
-### Elements (asset references)
-Provide real-world objects, characters, or scenes to appear in the video:
-```bash
---element path/to/object.png
---element path/to/another-object.png   # multiple allowed
+--element path/to/object.png   # repeatable
 ```
 
 ### Style references
-Provide aesthetic/visual style to apply:
 ```bash
---style path/to/style-ref.png
+--style path/to/style.png      # repeatable
 ```
 
-Elements and style can be combined freely.
+## Gemini API Limitations
 
-## API Key
-
-Checked in order:
-1. `--api-key KEY`
-2. `GEMINI_API_KEY` env var
-
-## Default Workflow
-
-1. **Draft** — quick test at 720p, 5s, veo-2 if fast iteration needed
-2. **Refine** — adjust prompt, add references
-3. **Final** — 1080p, veo-3, full duration
+These flags are **Vertex AI only** — not supported on the Gemini API:
+- `--last-frame` (workaround: generate two clips and stitch with ffmpeg)
+- `--resolution` (API uses its own default)
+- `--fps`
+- `--generate-audio`
 
 ## Filename Convention
 
 `yyyy-mm-dd-hh-mm-ss-descriptive-name.mp4`
 
-Examples:
-- `2026-02-27-14-00-00-sunset-timelapse.mp4`
-- `2026-02-27-15-30-00-robot-walks.mp4`
-
 ## Examples
 
-**Basic text-to-video:**
 ```bash
-~/.local/bin/uv run ~/.openclaw/workspace/skills/veo/scripts/generate_video.py \
-  --prompt "A golden sunset over the ocean, waves gently crashing" \
-  --filename "2026-02-27-14-00-00-sunset.mp4" \
-  --api-key YOUR_KEY
-```
+# Fast generation (default)
+generate_video.py --prompt "sunset over ocean" --filename out.mp4 --api-key KEY
 
-**Image-to-video with style:**
-```bash
-~/.local/bin/uv run ~/.openclaw/workspace/skills/veo/scripts/generate_video.py \
-  --prompt "The character walks forward slowly" \
-  --input-image character.png \
-  --style painterly-style.png \
-  --filename "2026-02-27-14-00-00-character-walk.mp4" \
-  --api-key YOUR_KEY
-```
+# Highest quality
+generate_video.py --prompt "sunset over ocean" --model quality --filename out.mp4 --api-key KEY
 
-**With element references and last frame:**
-```bash
-~/.local/bin/uv run ~/.openclaw/workspace/skills/veo/scripts/generate_video.py \
-  --prompt "The red vase sits on the table, camera slowly zooms in" \
-  --element red-vase.png \
-  --last-frame final-close-up.png \
-  --duration 8 \
-  --resolution 1080p \
-  --filename "2026-02-27-14-00-00-vase-zoom.mp4" \
-  --api-key YOUR_KEY
-```
+# Image-to-video
+generate_video.py --prompt "slowly zoom in" --input-image photo.png --filename out.mp4 --api-key KEY
 
-**Vertical video (social):**
-```bash
-~/.local/bin/uv run ~/.openclaw/workspace/skills/veo/scripts/generate_video.py \
-  --prompt "Close up of coffee being poured, slow motion" \
-  --aspect-ratio 9:16 \
-  --filename "2026-02-27-14-00-00-coffee-pour.mp4" \
-  --api-key YOUR_KEY
-```
+# With element + style references
+generate_video.py --prompt "the vase sits on the table" --element vase.png --style watercolor.png --filename out.mp4 --api-key KEY
 
-## Notes
-- Veo generation is async — the script polls until complete (typically 2–5 min)
-- Veo 3 generates audio by default; use `--no-audio` to disable
-- `--count > 1` saves as `name-1.mp4`, `name-2.mp4`, etc.
-- Videos are saved as MP4
+# Vertical (social)
+generate_video.py --prompt "coffee pour, slow motion" --aspect-ratio 9:16 --filename out.mp4 --api-key KEY
+
+# List available models
+generate_video.py --list-models --api-key KEY
+```

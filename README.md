@@ -1,17 +1,15 @@
 # 🎬 Veo — Video Generation Skill for OpenClaw
 
-Generate videos with Google's [Veo 3](https://deepmind.google/technologies/veo/) via the Gemini API. Supports text-to-video, image-to-video, reference images for elements and style, and last-frame guidance.
+Generate videos with Google's Veo via the Gemini API. Default model is **Veo 3.1 Fast** — great quality with fast turnaround. Switch to `quality` for maximum output.
 
 ## Features
 
 - **Text-to-video** — generate from a prompt
 - **Image-to-video** — animate from a starting image
-- **Last-frame** — guide the video toward a specific ending frame
 - **Element references** — provide assets (objects, characters, scenes) to appear in the video
-- **Style references** — provide aesthetic references (color palette, lighting, texture)
-- **Veo 2 + Veo 3** — model selection
-- **Audio generation** — Veo 3 generates audio by default
-- **720p / 1080p**, **16:9 / 9:16**, **5–8 second** duration
+- **Style references** — provide aesthetic references (lighting, texture, color palette)
+- **Model aliases** — `fast`, `quality`, `3.1`, `3.0`, `2.0` for easy switching
+- **16:9 / 9:16** aspect ratios, **5–8 second** duration
 
 ## Install
 
@@ -19,21 +17,43 @@ Generate videos with Google's [Veo 3](https://deepmind.google/technologies/veo/)
 clawhub install veo
 ```
 
-Or manually: copy `SKILL.md` and `scripts/generate_video.py` into your OpenClaw skills directory.
-
-**Requirements:** [`uv`](https://github.com/astral-sh/uv) (Python package runner)
+**Requirements:** [`uv`](https://github.com/astral-sh/uv)
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-## Usage
+## Quick Start
 
 ```bash
-~/.local/bin/uv run /path/to/skills/veo/scripts/generate_video.py \
-  --prompt "your video description" \
-  --filename "output.mp4" \
+uv run scripts/generate_video.py \
+  --prompt "A golden sunset over the ocean, waves gently crashing" \
+  --filename "sunset.mp4" \
   --api-key YOUR_GEMINI_API_KEY
+```
+
+## Models
+
+| Alias | Model | Notes |
+|-------|-------|-------|
+| `fast` *(default)* | `veo-3.1-fast-generate-preview` | Fastest, great quality |
+| `quality` | `veo-3.1-generate-preview` | Highest quality, slower |
+| `3.0` | `veo-3.0-generate-001` | Veo 3.0 quality |
+| `3.0fast` | `veo-3.0-fast-generate-001` | Veo 3.0 fast |
+| `2.0` | `veo-2.0-generate-001` | Most compatible |
+
+```bash
+# Fast (default)
+--model fast
+
+# Highest quality
+--model quality
+
+# Or use full model name
+--model veo-3.1-generate-preview
+
+# List all available models
+--list-models
 ```
 
 ## Examples
@@ -41,10 +61,16 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ### Text-to-video
 ```bash
 uv run scripts/generate_video.py \
-  --prompt "A golden sunset over the ocean, waves gently crashing on the shore" \
-  --filename "sunset.mp4" \
-  --resolution 1080p \
-  --duration 8
+  --prompt "A golden sunset over the ocean" \
+  --filename "sunset.mp4"
+```
+
+### High quality
+```bash
+uv run scripts/generate_video.py \
+  --prompt "A golden sunset over the ocean" \
+  --model quality \
+  --filename "sunset-hq.mp4"
 ```
 
 ### Image-to-video
@@ -58,12 +84,10 @@ uv run scripts/generate_video.py \
 ### With element + style references
 ```bash
 uv run scripts/generate_video.py \
-  --prompt "The red vase sits on the table, camera slowly zooms in" \
+  --prompt "The red vase sits on the table" \
   --element red-vase.png \
   --style painterly-style.png \
-  --last-frame final-closeup.png \
-  --filename "vase-zoom.mp4" \
-  --resolution 1080p
+  --filename "vase.mp4"
 ```
 
 ### Vertical video (social)
@@ -78,32 +102,36 @@ uv run scripts/generate_video.py \
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--prompt` | required | Text description of the video |
+| `--prompt` | required | Text description |
 | `--filename` | required | Output path (`.mp4`) |
-| `--model` | `veo-3-generate-001` | `veo-2-generate-001` or `veo-3-generate-001` |
-| `--duration` | `8` | Duration in seconds (5–8) |
+| `--model` | `fast` | Model alias or full name |
+| `--duration` | `8` | Seconds (5–8) |
 | `--aspect-ratio` | `16:9` | `16:9` or `9:16` |
-| `--resolution` | `720p` | `720p` or `1080p` |
 | `--negative-prompt` | — | What to avoid |
 | `--seed` | — | Reproducibility seed |
-| `--no-audio` | off | Disable audio (Veo 3 only) |
-| `--count` | `1` | Number of videos to generate |
-| `--input-image` | — | Starting frame for image-to-video |
-| `--last-frame` | — | Target ending frame |
+| `--count` | `1` | Number of videos |
+| `--input-image` | — | Starting frame (image-to-video) |
 | `--element` | — | Asset reference image (repeatable) |
 | `--style` | — | Style reference image (repeatable) |
-| `--api-key` | — | Gemini API key (or set `GEMINI_API_KEY`) |
+| `--api-key` | — | Gemini API key (or `GEMINI_API_KEY` env) |
+| `--list-models` | — | List available Veo models and exit |
+
+## Gemini API Limitations
+
+These features require **Vertex AI** and are not available on the standard Gemini API:
+- `--last-frame` — **workaround:** generate two clips and stitch with `ffmpeg`
+- `--resolution` — API controls this automatically
+- `--fps` / `--generate-audio`
 
 ## API Key
 
-Get a Gemini API key at [aistudio.google.com](https://aistudio.google.com). Pass via `--api-key` or set the `GEMINI_API_KEY` environment variable.
+Get a Gemini API key at [aistudio.google.com](https://aistudio.google.com). Pass via `--api-key` or set `GEMINI_API_KEY`.
 
 ## Notes
 
-- Generation is async — the script polls until complete (typically 2–5 minutes)
+- Generation takes **2–5 minutes** (async polling)
 - `--count > 1` saves as `name-1.mp4`, `name-2.mp4`, etc.
-- Veo 3 generates audio by default; use `--no-audio` to disable
-- `--element` and `--style` can each be used multiple times
+- Videos download from a temporary URI after generation
 
 ## License
 
