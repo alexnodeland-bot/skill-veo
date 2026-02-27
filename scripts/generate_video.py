@@ -38,14 +38,12 @@ def main():
     parser = argparse.ArgumentParser(description="Generate video with Veo via Gemini API")
     parser.add_argument("--prompt", required=True, help="Text prompt for video generation")
     parser.add_argument("--filename", required=True, help="Output filename (e.g. output.mp4)")
-    parser.add_argument("--model", default="veo-3-generate-001", help="Veo model (default: veo-3-generate-001)")
+    parser.add_argument("--model", default="veo-2.0-generate-001", help="Veo model (default: veo-2.0-generate-001). Options: veo-2.0-generate-001, veo-3.0-generate-001, veo-3.0-fast-generate-001, veo-3.1-generate-preview, veo-3.1-fast-generate-preview")
     parser.add_argument("--duration", type=int, default=8, help="Duration in seconds (default: 8, range: 5-8)")
     parser.add_argument("--aspect-ratio", default="16:9", choices=["16:9", "9:16"], help="Aspect ratio")
     parser.add_argument("--resolution", default="720p", choices=["720p", "1080p"], help="Resolution")
-    parser.add_argument("--fps", type=int, default=24, choices=[24], help="Frames per second")
     parser.add_argument("--negative-prompt", help="What to avoid in the video")
     parser.add_argument("--seed", type=int, help="Random seed for reproducibility")
-    parser.add_argument("--no-audio", action="store_true", help="Disable audio generation (Veo 3)")
     parser.add_argument("--count", type=int, default=1, help="Number of videos to generate (default: 1)")
 
     # Input sources
@@ -72,12 +70,11 @@ def main():
 
     client = genai.Client(api_key=api_key)
 
-    # Build source
-    source_kwargs = {"prompt": args.prompt}
+    # Input image (image-to-video) — top-level param on generate_videos
+    input_image = None
     if args.input_image:
         print(f"Loading input image: {args.input_image}")
-        source_kwargs["image"] = load_image(args.input_image)
-    source = types.GenerateVideosSource(**source_kwargs)
+        input_image = load_image(args.input_image)
 
     # Build config
     config_kwargs = {
@@ -85,9 +82,7 @@ def main():
         "duration_seconds": args.duration,
         "aspect_ratio": args.aspect_ratio,
         "resolution": args.resolution,
-        "fps": args.fps,
         "enhance_prompt": True,
-        "generate_audio": not args.no_audio,
     }
 
     if args.negative_prompt:
@@ -120,15 +115,19 @@ def main():
     # Submit generation
     print(f"Submitting video generation with {args.model}...")
     print(f"  Prompt: {args.prompt}")
-    print(f"  Duration: {args.duration}s | Aspect: {args.aspect_ratio} | Resolution: {args.resolution}")
+    print(f"  Duration: {args.duration}s | Aspect: {args.aspect_ratio} | Resolution: {args.resolution} | Model: {args.model}")
     if reference_images:
         print(f"  Reference images: {len(reference_images)} (elements: {len(args.element or [])}, styles: {len(args.style or [])})")
 
-    operation = client.models.generate_videos(
-        model=args.model,
-        prompt=source,
-        config=config,
-    )
+    generate_kwargs = {
+        "model": args.model,
+        "prompt": args.prompt,
+        "config": config,
+    }
+    if input_image:
+        generate_kwargs["image"] = input_image
+
+    operation = client.models.generate_videos(**generate_kwargs)
 
     # Poll until done
     print("Waiting for generation to complete", end="", flush=True)
@@ -143,6 +142,7 @@ def main():
         sys.exit(1)
 
     # Save output(s)
+    import urllib.request
     output_path = Path(args.filename)
     saved = []
     for i, video in enumerate(operation.response.generated_videos):
@@ -153,8 +153,19 @@ def main():
         else:
             out = output_path if output_path.suffix else output_path.with_suffix(".mp4")
 
-        with open(out, "wb") as f:
-            f.write(video.video.video_bytes)
+        v = video.video
+        if v.video_bytes:
+            with open(out, "wb") as f:
+                f.write(v.video_bytes)
+        elif v.uri:
+            print(f"Downloading from: {v.uri}")
+            # Append API key for authenticated GCS download
+            download_url = f"{v.uri}&key={api_key}" if "?" in v.uri else f"{v.uri}?key={api_key}"
+            urllib.request.urlretrieve(download_url, out)
+        else:
+            print(f"Error: no video data in response for video {i+1}", file=sys.stderr)
+            continue
+
         saved.append(str(out))
         print(f"Video saved: {out}")
 
