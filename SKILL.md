@@ -63,6 +63,7 @@ Animate from a starting image.
 --last-frame path/to/end-frame.png
 ```
 Guide the video toward a specific ending frame.
+**Note:** `--last-frame` is only supported on Vertex AI, not the Gemini API. If using the Gemini API (default), omit this flag. Workaround: generate two clips and stitch with ffmpeg.
 
 ## Reference Images
 
